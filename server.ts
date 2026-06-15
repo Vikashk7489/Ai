@@ -37,14 +37,24 @@ const SHRUTI_INSTRUCTION = `आप Shruti हैं, एक उच्च उन�
 
 app.post("/api/chat", async (req, res) => {
   try {
-    const { message } = req.body;
+    const { message, image } = req.body;
     if (!message) {
       return res.status(400).json({ error: "Message is required" });
     }
 
+    const parts: any[] = [{ text: message }];
+    if (image) {
+      parts.push({
+        inlineData: {
+          mimeType: "image/jpeg",
+          data: image,
+        },
+      });
+    }
+
     const response = await ai.models.generateContent({
       model: "gemini-3.5-flash",
-      contents: message,
+      contents: { parts },
       config: {
         systemInstruction: SHRUTI_INSTRUCTION,
       },

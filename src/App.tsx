@@ -12,9 +12,17 @@ declare global {
 }
 
 interface JarvisFile {
+  id: string;
   name: string;
   content: string;
   type: string;
+  timestamp: string;
+}
+
+interface HistoryItem {
+  id: string;
+  command: string;
+  response: string;
   timestamp: string;
 }
 
@@ -30,6 +38,7 @@ export default function App() {
   const [activeFile, setActiveFile] = useState<JarvisFile | null>(null);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [isScreenSharing, setIsScreenSharing] = useState(false);
+  const [history, setHistory] = useState<HistoryItem[]>([]);
 
   const recognitionRef = useRef<any>(null);
   const isActuallyStarted = useRef(false);
@@ -118,6 +127,15 @@ export default function App() {
       }
       setIsScreenSharing(false);
     } else {
+      // Mobile check
+      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+      if (isMobile) {
+        setStatus("Mobile Block");
+        setResponse("बॉस, मोबाइल ब्राउज़र पर स्क्रीन शेयरिंग संभव नहीं है। कृपया डेस्कटॉप का उपयोग करें।");
+        speak("बॉस, मोबाइल ब्राउज़र पर स्क्रीन शेयरिंग संभव नहीं है। कृपया डेस्कटॉप का उपयोग करें।");
+        return;
+      }
+
       if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
         setStatus("Display API Missing");
         setResponse("बॉस, यह ब्राउज़र स्क्रीन शेयरिंग (Screen Sharing) को सपोर्ट नहीं करता है।");
@@ -126,7 +144,10 @@ export default function App() {
       }
 
       try {
-        const stream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+        const stream = await navigator.mediaDevices.getDisplayMedia({ 
+          video: { cursor: "always" } as any,
+          audio: false 
+        });
         screenStreamRef.current = stream;
         setIsScreenSharing(true);
         setStatus("Display Link: OK");
@@ -144,6 +165,8 @@ export default function App() {
           speak("बॉस, स्क्रीन शेयरिंग के लिए अनुमति नहीं दी गई।");
         } else {
           setStatus("Display Sync Error");
+          setResponse("बॉस, स्क्रीन शेयरिंग शुरू करने में समस्या हुई। शायद आपके ब्राउज़र ने इसे ब्लॉक कर दिया है।");
+          speak("बॉस, स्क्रीन शेयरिंग शुरू करने में समस्या हुई।");
         }
       }
     }
@@ -198,6 +221,7 @@ export default function App() {
       const fileName = match[1].trim();
       const content = match[2].trim();
       newFiles.push({
+        id: `file-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
         name: fileName,
         content: content,
         type: fileName.split('.').pop() || 'txt',
@@ -215,15 +239,41 @@ export default function App() {
     return cleanText;
   };
 
+  const captureFrame = (videoElement: HTMLVideoElement) => {
+    try {
+      const canvas = document.createElement("canvas");
+      canvas.width = videoElement.videoWidth;
+      canvas.height = videoElement.videoHeight;
+      const ctx = canvas.getContext("2d");
+      if (ctx) {
+        ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
+        return canvas.toDataURL("image/jpeg", 0.8).split(",")[1];
+      }
+    } catch (e) {
+      console.error("Frame capture failed:", e);
+    }
+    return null;
+  };
+
   const processCommand = async (text: string) => {
     setIsProcessing(true);
     setStatus("Analysing...");
     
     try {
+      let imageData: string | null = null;
+      if (isScreenSharing && screenVideoRef.current) {
+        imageData = captureFrame(screenVideoRef.current);
+      } else if (isCameraOpen && videoRef.current) {
+        imageData = captureFrame(videoRef.current);
+      }
+
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: text }),
+        body: JSON.stringify({ 
+          message: text,
+          image: imageData
+        }),
       });
       const data = await res.json();
       
@@ -231,6 +281,12 @@ export default function App() {
       
       const cleanResponse = parseFilesFromResponse(data.text);
       setResponse(cleanResponse);
+      setHistory(prev => [{
+        id: `hist-${Date.now()}`,
+        command: text,
+        response: cleanResponse,
+        timestamp: new Date().toLocaleTimeString()
+      }, ...prev]);
       setStatus("Responding");
       speak(cleanResponse);
     } catch (error: any) {
@@ -344,6 +400,7 @@ export default function App() {
           <AnimatePresence>
             {isScreenSharing && (
               <motion.div
+                key="screen-share"
                 initial={{ opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: 20 }}
@@ -364,6 +421,7 @@ export default function App() {
 
             {isCameraOpen && (
               <motion.div
+                key="camera-feed"
                 initial={{ opacity: 0, scale: 0.8 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.8 }}
@@ -384,6 +442,7 @@ export default function App() {
 
             {response && (
               <motion.div
+                key="neural-response"
                 initial={{ opacity: 0, y: 20, scale: 0.9 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.9 }}
@@ -405,11 +464,34 @@ export default function App() {
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              className="font-mono text-[11px] text-white/40 text-center max-w-sm"
+              className="font-mono text-[11px] text-white/40 text-center max-w-sm mb-4"
             >
               DETECTED: "{transcript}"
             </motion.div>
           )}
+
+          {/* Command History */}
+          {history.length > 0 && (
+            <div className="w-full max-h-40 overflow-y-auto mb-6 code-scrollbar px-4 border-t border-b border-jarvis-blue/10 py-4 glass-panel bg-black/20">
+              <div className="flex flex-col gap-4">
+                {history.map((item) => (
+                  <div key={item.id} className="text-left border-l border-jarvis-blue/30 pl-4 py-1 transition-all hover:bg-jarvis-blue/5">
+                    <div className="flex justify-between items-center mb-1">
+                      <span className="font-mono text-[8px] text-jarvis-blue tracking-widest uppercase opacity-40">Entry: {item.timestamp}</span>
+                      <Terminal className="w-3 h-3 text-jarvis-blue opacity-20" />
+                    </div>
+                    <div className="font-mono text-[10px] text-white/60 mb-1 leading-relaxed">
+                      <span className="text-jarvis-blue/40 mr-2">&gt;</span>{item.command}
+                    </div>
+                    <div className="font-sans text-[10px] text-jarvis-blue/90 font-light italic leading-relaxed">
+                      <span className="opacity-40 mr-2">SHRUTI:</span>{item.response.length > 100 ? item.response.substring(0, 100) + "..." : item.response}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           <AudioVisualizer isActive={isListening || isProcessing || status === "Speaking"} />
           
           <div className="flex items-center gap-8">
@@ -451,6 +533,7 @@ export default function App() {
       <AnimatePresence>
         {isPanelOpen && (
           <motion.div
+            key="side-panel"
             initial={{ x: "100%" }}
             animate={{ x: 0 }}
             exit={{ x: "100%" }}
@@ -477,9 +560,9 @@ export default function App() {
                   {/* File List */}
                   {!activeFile ? (
                     <div className="flex flex-col">
-                      {files.map((file, i) => (
+                      {files.map((file) => (
                         <button
-                          key={i}
+                          key={file.id}
                           onClick={() => setActiveFile(file)}
                           className="w-full p-4 border-b border-jarvis-blue/10 flex items-center gap-3 hover:bg-jarvis-blue/5 transition-all text-left"
                         >
