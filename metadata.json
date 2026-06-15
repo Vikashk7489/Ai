@@ -1,0 +1,12 @@
+{
+  "name": "Shruti AI Assistant",
+  "description": "A futuristic personal AI assistant named Shruti, with Hindi voice interaction, real-time code generation, and a sleek HUD.",
+  "requestFramePermissions": [
+    "microphone",
+    "camera",
+    "display-capture"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
