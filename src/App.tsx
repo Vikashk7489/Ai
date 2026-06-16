@@ -446,8 +446,13 @@ export default function App() {
                 initial={{ opacity: 0, y: 20, scale: 0.9 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.9 }}
-                className="absolute bottom-1/4 max-w-lg glass-panel p-6 rounded-lg text-center mx-4"
+                className="absolute bottom-1/4 max-w-lg glass-panel p-6 rounded-lg text-center mx-4 border border-jarvis-blue/30 backdrop-blur-xl shadow-[0_0_30px_rgba(0,242,255,0.1)]"
               >
+                <div className="absolute top-0 left-0 w-4 h-4 border-t-2 border-l-2 border-jarvis-blue/50 rounded-tl -mt-1 -ml-1" />
+                <div className="absolute top-0 right-0 w-4 h-4 border-t-2 border-r-2 border-jarvis-blue/50 rounded-tr -mt-1 -mr-1" />
+                <div className="absolute bottom-0 left-0 w-4 h-4 border-b-2 border-l-2 border-jarvis-blue/50 rounded-bl -mb-1 -ml-1" />
+                <div className="absolute bottom-0 right-0 w-4 h-4 border-b-2 border-r-2 border-jarvis-blue/50 rounded-br -mb-1 -mr-1" />
+                
                 <div className="neural-line absolute top-0 left-0" />
                 <p className="font-sans text-sm leading-relaxed text-jarvis-blue mb-2 font-medium">
                   {response}

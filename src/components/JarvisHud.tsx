@@ -8,9 +8,15 @@ export const JarvisHud = () => {
 
       {/* Outer Ring */}
       <motion.div
-        animate={{ rotate: 360 }}
-        transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
-        className="absolute w-80 h-80 rounded-full border-2 border-dashed border-jarvis-blue/30"
+        animate={{ 
+          rotate: 360,
+          scale: [1, 1.02, 1],
+        }}
+        transition={{ 
+          rotate: { duration: 30, repeat: Infinity, ease: "linear" },
+          scale: { duration: 4, repeat: Infinity, ease: "easeInOut" }
+        }}
+        className="absolute w-80 h-80 rounded-full border border-dashed border-jarvis-blue/40 shadow-[0_0_15px_rgba(0,242,255,0.1)]"
       />
 
       {/* Middle Ring */}
